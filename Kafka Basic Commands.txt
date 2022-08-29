@@ -1,0 +1,254 @@
+
+>>install java 11 jdk and set path variable JAVA_HOME
+>>Powershell 
+>To Install wsl: wsl --install
+>To enable WSL2: dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart or download wsl2 file and run
+
+#Install Ubuntu: 
+wsl --install -d Ubuntu
+>Set Ubuntu v2: wsl --set-version Ubuntu 2
+>Version: wsl -l -v
+
+#Install Java In Ubuntu:
+>>wget -O- https://apt.corretto.aws/corretto.key | sudo apt-key add - 
+sudo add-apt-repository 'deb https://apt.corretto.aws stable main' sudo apt-get update; 
+sudo apt-get install -y java-11-amazon-corretto-jdk
+
+#Install Kafka on Ubuntu: 
+>wget https://dlcdn.apache.org/kafka/3.2.0/kafka_2.13-3.2.0.tgz
+>Extract: tar xzf kafka_2.13-3.0.0.tgz
+
+
+#Disable ipv6 on ubantu:
+-----------------------
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+
+
+
+#SET ENV Path Variable: 
+>go to bin path: cd kafka/bin -> then-> run->pwd->copy the path->go back: cd ../../
+>edit bashrc file: nano .bashrc-> Paste in the bottom of file: PATH="$PATH:<Paste copied path>"
+>To check change: echo $PATH
+
+>>To change Zookeeper and server properties file in ubuntu9:
+>nano kafka_2.13-3.2.0/config/zookeeper.properties->dataDir=/temp/zookeeper(set this path accordingly(optional))
+>nano kafka_2.13-3.2.0/config/server.properties-> log-dirs= <Path>/kafka-logs
+
+
+
+
+>>----------------KAFKA-----------------------------
+(WINDOWS)
+#In config folder inside Kafka
+>>set path in zookeeper.properties- dataDir= <path to kafka folder>/zookeeper-data
+and 
+>>server.properties- log-dirs= <Path to Kafka folder>/kafka-logs
+
+>>open cmd in kafka folder
+
+#Start Zookeeper server:
+>(windows).\bin\windows\zookeeper-server-start.bat .\config\zookeeper.properties or ../../ if config folder is 2 folder outside
+>(ubuntu)zookeeper-server-start.sh ~/kafka_2.13-3.2.0/config/zookeeper.properties
+
+
+#Start Kafka Server: 
+>.\bin\windows\kafka-server-start.bat .\config\sever.properties
+>(ubuntu)kafka-server-start.sh ~/kafka_2.13-3.2.0/config/server.properties
+
+
+
+
+--------------------TOPICS-------------------------------------------------
+#CREATE TOPIC (open new terminal inside bin/window)
+>kafka-topics.bat --create --topic TopicName --zookeeper or --bootstrap-server localhost:2181 --replication-factor 1 --partitions 1 
+>kafka-topics.bat --create --topic MyTopic --bootstrap-server localhost:9092
+
+#List All Topics
+>kafka-topics.bat --zookeeper localhost:2181 --list
+#Describe the topic
+>kafka-topics.bat --topic topicName --bootstrap-server localhost:9092 --describe 
+
+-----------------------PRODUCER-------------------------------------------------------
+#Create console producer(^C to exit)
+
+>kafka-console-producer.bat or .sh --topic topicName --bootstrap-server localhost:9092
+>kafka-console-producer.bat --topic topicName --broker-list localhost:9092
+
+>>Producing with properties:
+>kafka-console-producer.bat or .sh --topic topicName --bootstrap-server localhost:9092 --producer-property acks=all
+
+>>Produce with keys:
+>kafka-console-producer --topic topicName bootstrap-server localhost:9092 --property parse.key=true --property key.separator=:
+example key: example value
+
+-----------------------CONSUMER----------------------------------------------------
+#Create console Consumer
+
+>>(Reads from End(Tail)):
+>kafka-console-consumer.bat or .sh --topic topicName --bootstrap-server localhost:9092
+
+>>(Reads from beginning):
+>kafka-console-consumer.bat --topic topicName --from-beginning --bootstrap-server localhost: 9092
+
+>>(Displays keys and values):
+>kafka-console-consumer --topic topiczname --bootstrap-server localhost:9092 --from-beginning 
+	-- formatter kafka.tools.DefaultMessageFormatter --property print.timestamp=true 
+	--property print.key=true --property print.value=true
+
+#Kafka Consumers in Group:
+>>Consumer group:(producer's msgs will be devided in each consumer of same group, if consumer in group(say 4) are more than partition(say 3) then one consumer will become completely inactive)
+
+>Consumer-Server:1:- kafka-console-consumer.bat --topic topicName --from-beginning --bootstrap-server localhost: 9092 --group my-first-consumer-group
+>Consumer-Server:2:- kafka-console-consumer.bat --topic topicName --from-beginning --bootstrap-server localhost: 9092 --group my-first-consumer-group
+
+>If you have multiple consumer groups then each group will rcv producers msgs and then msgs will be destributed among group consumers
+
+--------------------------------Consumer Groups----------------------------------------
+
+#List all consumer groups:
+>kafka-consumer-groups --bootstrap-server localhost:9092 --list
+
+#describe the group:
+>kafka-consumer-groups --bootstrap-server localhost:9092 --describe --group my-first-consumer-group
+
+#Reset offset:(can only be done when consumers arent running)
+>kafka-consumer-groups --bootstrap-server localhost:9092 --group my-first-consumer-group 
+	--reset-offsets (--to-earliest/ --shift-by 2/ --shift-by -2) --all-topics or -topic <name> --execute
+
+
+
+
+
+==========================================================================================================================================================================
+Kafka Notes
+==========================================================================================================================================================================
+>>Topic -> 
+bucket on which data is stored??
+
+>>Partition -> 
+Division of topics , msg withinin each partition are ordered
+So, order of messages are gaurenteed within a partition not across partition
+many pertition per topic is possible use for high throughput
+partition are assigned to consumer group distributedly for a topic
+
+>>offset -> 
+msg with incremental id within partition
+
+>>Producers -> 
+data writer to topic - only broker and topic required
+Producer knows in advance which partition to write based on algo (roundrobin) we dont need to mention
+
+>>Key ->
+used by producer to decide Partition (
+null means roundrobin ,serially msg will be pushed to partitions load balancing
+!null meamns msg for particular key will go to same partition
+Key Hashing is used to determine the mapping of key to partition
+
+>>Message-> 
+Key+Value+Compression type+ Headers+ Partition+Offset+Timestamp
+ip bytes op bytes
+Message serialization/deserialisation is used
+
+>>Consumer ->
+reads data from topic
+consumer autometically knows which broker to read from
+deserialisation is used
+within topic lifecycle serialisation/deserialisation type must remain same i.e key value type must remain same (create new topic for requirement)
+
+>>Consumer Group ->
+consmers in a group read data as consumer group
+each reads data from mutual exclusive partition i.e one consumer can read data from multiple partition but one partion will be mapped once to any consumer group
+one or more can be inactive in a group
+group.id is used to determine consumer group
+all the messages from a producer can be distributed to a consumer group such that together group will have all the messages produced by producer but no producer messagewill be present twice in a group
+
+>>Consumer Offset -> 
+kafka stores the offset of the consumer group has been reading
+offset are commited to kafka internal topic __consumer_offset
+this is to keep track of consumer reading
+only consumr group commit offset to keep track of partition message read not individual consumer
+based on offset commit- atleast 1/ atmost 1/ exact 1
+
+>>Broker -> 
+Kafka server which sends/recieves data, muliple per cluster
+have ids
+Partitions for a topics are distributed over brokers - horizontal scaling
+also called bootstrap server
+we only needs to connect to one broker and clients will know how to connect to whole cluster
+all broker have metadata info
+
+>>Replication factor -> 
+topic replication factor
+Replication of topic partition as mentioned
+Are distributed over brokers
+
+>>Leader of partition -> 
+One broke at a time can be leader of given partition
+producer sends data to only leader broker of partition
+consumer reads data from leader broker partition by default
+ISR In Sync Replicas
+It is possible to configure to read from closest replica
+
+>>Producer Acknowledgement -> 
+Producer can choose to recive ack from Kafka server
+acks=0 dont wait for acknowledgement
+acks=1 wait for leader acknowledgement
+acks=2 wait for leader and all ISR replicas for acknowledgement
+
+>>Zookeeper -> Broker Manager
+leader election for partition
+send notification for changes like topic creation, broker down
+
+>>Rebalancing-> 
+Moving partitions between consumers is called rebalance.
+Reassigning of partitions happens when a consumer leaves or joins a group.
+Also happens when admin adds new partitions in topic.
+1)Eager Rebalancing: (default)
+	*All consumers stop, give up their membership of partitions,
+	*They rejoin the consumer group and get a new partition assignment,
+	*During a short period of time, the entire consumer group stops processing.
+	*Consumers not necessarily "get back" the same partitions as they used to.
+
+2) Cooperative Rebalancing (incremental rebalance):
+	*Reassigning a small part(subset) of the partition from one consumer to another.
+	*Other consumers that dont have reassigned partitions can still process uninterrupted.
+	*Can go through several iterations to find "stable" assignment (hence "incremental").
+	*Avoids "stop the world" events where all consumers stop processing data.
+>>>Kafka Consumer: partition.assignment.strategy
+	* RangeAssignor (eager rebalance): assign partitions on per topic basis (can lead to imbalance),
+	* Round Robin (eager rebalance): assign partitions across all topics in round-robin fashion, optimal balance,
+	* StickyAssignor (eager): balanced like RoundRobin, and then minimises partition movements when consumer join/leave the group
+	 in order to minimise movements.
+	* CooperativeStickyAssignor (cooperative rebalance): rebalance strategy is identical to StickyAssignor but supports cooperative rebalances and
+	 therefore consumers can keep on consuming from the topic.
+	* Default assigner is: [RangeAssignor, CooperativeStickyAssignor], which uses the RangeAssignor by default, but allows upgrading the CooperativeStickyAssignor with just
+	 a single rolling bounce that removes the rangeAssignor from the list.
+
+
+
+======================================================================================================================
+commands : 
+======================================================================================================================
+kafka-topics.sh --bootstrap-server localhost:9092 --list
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic first_topic
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic third_topic --partitions 3 replication-factor 1
+kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic first.topic
+kafka-topics.sh --bootstrap-server localhost:9092 --describe
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic first_topic
+kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic word-count-input --partitions 2
+
+kafka-console-producer.sh --bootstrap-server localhost:9092 --topic first_topic
+kafka-console-producer.sh --bootstrap-server localhost:9092 --topic first_topic --producer-property acks=all
+kafka-console-producer.sh --bootstrap-server localhost:9092 --topic new_topic #if no topic exist kafka will create one with the name
+kafka-console-producer.sh --bootstrap-server localhost:9092 --topic first_topic --property parse.key=true --property key.separator=:
+
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first_topic
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first_topic --from-beginning
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first_topic --from-beginning --formatter kafka.tools.DefaultMessageFormatter --property print.key=true --property print.value=true --propert
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first_topic --group my-first-consumer-group
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+
+
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-first-consumer-group
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group my-first-consumer-group --reset-offsets --to-earliest --execute --all-topics

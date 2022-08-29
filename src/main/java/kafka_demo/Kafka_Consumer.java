@@ -40,7 +40,7 @@ public class Kafka_Consumer {
         //poll for new data
         while(true){
             log.info("Polling");
-            ConsumerRecords<String, String> records= consumer.poll(Duration.ofMillis(1000));
+            ConsumerRecords<String, String> records= consumer.poll(1000);
             for(ConsumerRecord<String, String> record: records){
                 log.info("key: " + record.key() + ", Value: " + record.value());
                 log.info("Partition: " + record.partition() + ", Offset: " + record.offset());
